@@ -49,7 +49,7 @@ def chat():
 
     try:
         response = openai.ChatCompletion.create(
-            model='gpt-4',
+         model='gpt-3.5-turbo',   
             messages=[
                 {"role": "system", "content": "You are an orthopedic assistant helping a user after an injury. Ask helpful, medically relevant follow-up questions."},
                 {"role": "user", "content": user_message}
