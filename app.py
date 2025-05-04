@@ -1,30 +1,73 @@
 from flask import Flask, request, jsonify
+from flask_cors import CORS
+import os
+import openai
 
 app = Flask(__name__)
+CORS(app)
 
+# Set your OpenAI API key
+openai.api_key = "sk-..."  # Replace with your real OpenAI secret key
+
+# -------------------------------
+# TRIAGE ENDPOINT
+# -------------------------------
 @app.route('/triage', methods=['POST'])
 def triage():
-    data = request.get_json()
+    data = request.json
+    injury_location = data.get('location', '').lower()
+    pain_level = int(data.get('painlevel', 0))
+    onset_time = data.get('onsetTime', '').lower()
+    activity = data.get('activity', '').lower()
 
-    location = data.get('location', 'unknown')
-    pain = int(data.get('painLevel', 0))
-    onset = data.get('onsetTime', 'unspecified')
-    activity = data.get('activity', 'unspecified')
-
-    # Simple triage logic
-    if pain >= 8:
-        recommendation = "Seek urgent care or ER visit."
-    elif pain >= 4:
-        recommendation = "Schedule a telehealth visit."
+    # Very basic rule-based logic
+    if pain_level >= 7:
+        recommendation = "Visit urgent care or see a doctor immediately."
+    elif "swelling" in onset_time or pain_level >= 5:
+        recommendation = "Rest and monitor your condition closely. Consider virtual consult."
     else:
         recommendation = "Self-care and monitor symptoms."
 
-    assessment = f"Pain at {location} during '{activity}' starting {onset}."
+    assessment = f"Pain at {injury_location} during '{activity}' starting {onset_time}."
 
     return jsonify({
         "assessment": assessment,
         "recommendation": recommendation
     })
 
+# -------------------------------
+# CHATGPT AI FOLLOW-UP ENDPOINT
+# -------------------------------
+@app.route('/chat', methods=['POST'])
+def chat():
+    data = request.json
+    user_message = data.get('message', '')
+
+    response = openai.ChatCompletion.create(
+        model='gpt-4',
+        messages=[
+            {"role": "system", "content": "You are an orthopedic assistant helping a user after an injury. Ask helpful, medically relevant follow-up questions."},
+            {"role": "user", "content": user_message}
+        ]
+    )
+
+    return jsonify({"response": response['choices'][0]['message']['content']})
+
+# -------------------------------
+# OPTIONAL IMAGE UPLOAD ROUTE (if using)
+# -------------------------------
+@app.route('/upload-image', methods=['POST'])
+def upload_image():
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file provided'}), 400
+
+    file = request.files['file']
+    file.save(os.path.join('uploads', file.filename))
+    return jsonify({'message': 'Image uploaded successfully'})
+
+
+# -------------------------------
+# MAIN
+# -------------------------------
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0')
+    app.run(debug=True)
