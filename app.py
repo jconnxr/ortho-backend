@@ -2,13 +2,16 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import os
 import openai
-# Triggering redeploy after adding openai to requirements
+from dotenv import load_dotenv
+
+# Load environment variables from .env (local only)
+load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
 
-# Set your OpenAI API key
-openai.api_key = "sk-..."  # Replace with your real OpenAI secret key
+# Securely load OpenAI API key
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
 # -------------------------------
 # TRIAGE ENDPOINT
@@ -44,18 +47,21 @@ def chat():
     data = request.json
     user_message = data.get('message', '')
 
-    response = openai.ChatCompletion.create(
-        model='gpt-4',
-        messages=[
-            {"role": "system", "content": "You are an orthopedic assistant helping a user after an injury. Ask helpful, medically relevant follow-up questions."},
-            {"role": "user", "content": user_message}
-        ]
-    )
-
-    return jsonify({"response": response['choices'][0]['message']['content']})
+    try:
+        response = openai.ChatCompletion.create(
+            model='gpt-4',
+            messages=[
+                {"role": "system", "content": "You are an orthopedic assistant helping a user after an injury. Ask helpful, medically relevant follow-up questions."},
+                {"role": "user", "content": user_message}
+            ]
+        )
+        return jsonify({"response": response['choices'][0]['message']['content']})
+    except Exception as e:
+        print("OpenAI error:", e)
+        return jsonify({"error": "Something went wrong."}), 500
 
 # -------------------------------
-# OPTIONAL IMAGE UPLOAD ROUTE (if using)
+# OPTIONAL IMAGE UPLOAD ROUTE
 # -------------------------------
 @app.route('/upload-image', methods=['POST'])
 def upload_image():
@@ -65,7 +71,6 @@ def upload_image():
     file = request.files['file']
     file.save(os.path.join('uploads', file.filename))
     return jsonify({'message': 'Image uploaded successfully'})
-
 
 # -------------------------------
 # MAIN
